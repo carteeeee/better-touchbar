@@ -22,11 +22,23 @@
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.libinput ];
         };
+
+        udevrulesFilter = path: _type: builtins.match ".*rules$" path != null;
+        udevrulesOrCargo = path: type:
+          (udevrulesFilter path type) || (craneLib.filterCargoSources path type);
       in {
         default = craneLib.buildPackage (
           commonArgs
           // {
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = udevrulesOrCargo;
+              name = "source";
+            };
             cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+            postInstall = ''
+              cp -R etc $out/lib
+            '';
           }
         );
       }
@@ -57,6 +69,7 @@
       };
       
       config = mkIf config'.enable {
+        services.udev.packages = [ config'.package ];
         systemd.services."better-touchbar" = {
           enable = true;
           description = "pretty touchbar";
@@ -66,8 +79,8 @@
             Restart = "always";
           };
 
-          after = ["systemd-user-sessions.service" "getty@tty1.service" "plymouth-quit.service" "systemd-logind.service"];
-          wantedBy = ["multi-user.target"];
+          after = [ "systemd-user-sessions.service" "getty@tty1.service" "plymouth-quit.service" "systemd-logind.service" ];
+          wantedBy = [ "multi-user.target" ];
         };
       };
     };
