@@ -9,7 +9,6 @@
 
   outputs =
     {
-      self,
       nixpkgs,
       crane,
       flake-utils,
@@ -21,23 +20,19 @@
         pkgs = nixpkgs.legacyPackages.${system};
         craneLib = crane.mkLib pkgs;
 
-        buildInputs =
-          (with pkgs; [
-            pkg-config
-          ])
-          ++ runtimeLibs;
-
-        runtimeLibs = with pkgs; [
-          libinput
-        ];
-
-        better-touchbar = craneLib.buildPackage {
+        commonArgs = {
           src = craneLib.cleanCargoSource ./.;
-          #cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           strictDeps = true; # not sure what this is but seems important
-
-          inherit buildInputs;
+          nativeBuildInputs = [pkgs.pkg-config];
+          buildInputs = [pkgs.libinput];
         };
+
+        better-touchbar = craneLib.buildPackage (
+          commonArgs
+          // {
+            cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+          }
+        );
       in
       {
         checks = {
@@ -46,14 +41,7 @@
 
         packages.default = better-touchbar;
 
-        # needed?
-        /*apps.default = flake-utils.lib.mkApp {
-          drv = better-touchbar;
-        };*/
-
-        devShells.default = craneLib.devShell {
-          inherit buildInputs;
-        };
+        devShells.default = craneLib.devShell {};
       }
     );
 }
